@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { profileService } from '../lib/services'
-import { supabase } from '../lib/supabase'
 
 export default function Register() {
   const { signUp } = useAuth()
@@ -22,18 +21,31 @@ export default function Register() {
     setError('')
     setLoading(true)
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password })
-      if (signUpError) throw signUpError
-      if (data.user) {
-        await profileService.upsertProfile({
-          user_id: data.user.id,
-          full_name: fullName,
-          phone,
-          business_name: businessName,
-          preferred_language: 'en',
-        })
-      }
-      navigate('/dashboard')
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    email,
+    password,
+    full_name: fullName,
+    phone,
+    language: 'en',
+  }),
+})
+
+const data = await response.json()
+
+if (!response.ok) {
+  throw new Error(data.detail || 'Failed to create account')
+}
+
+localStorage.setItem('access_token', data.access_token)
+localStorage.setItem('user', JSON.stringify(data.user))
+
+navigate('/dashboard')
+
     } catch (err: any) {
       setError(err.message || 'Failed to create account')
     } finally {
